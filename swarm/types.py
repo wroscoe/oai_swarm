@@ -24,6 +24,7 @@ class Response(BaseModel):
     messages: List = []
     agent: Optional[Agent] = None
     context_variables: dict = {}
+    cost: float = 0.0
 
 
 class Result(BaseModel):

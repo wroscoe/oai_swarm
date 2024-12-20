@@ -1,5 +1,6 @@
 import inspect
 from datetime import datetime
+import tiktoken
 
 
 def debug_print(debug: bool, *args: str) -> None:
@@ -40,6 +41,11 @@ def function_to_json(func) -> dict:
     Returns:
         A dictionary representing the function's signature in JSON format.
     """
+
+    # if a partial fucntion is passed, get the original function
+
+    print(f'FUNC: {func.__name__}')
+
     type_map = {
         str: "string",
         int: "integer",
@@ -85,3 +91,64 @@ def function_to_json(func) -> dict:
             },
         },
     }
+
+def num_tokens_from_messages (messages, model="gpt-3.5-turbo-0613"):
+        """Return the number of tokens used by a list of messages."""
+        try:
+            encoding = tiktoken.encoding_for_model(model)
+        except KeyError:
+            print("Warning: model not found. Using cl100k_base encoding.")
+            encoding = tiktoken.get_encoding("cl100k_base")
+        
+        num_tokens = 0
+        for message in messages:
+            message = dict(message)
+            print(message)
+            num_tokens += len(encoding.encode(str(message['content'])))
+            num_tokens += len(encoding.encode(message['role']))
+            num_tokens += 12
+
+        return num_tokens
+
+
+def num_tokens_from_functions(functions, model="gpt-3.5-turbo-0613"):
+        print(functions)
+        """Return the number of tokens used by a list of functions."""
+        try:
+            encoding = tiktoken.encoding_for_model(model)
+        except KeyError:
+            print("Warning: model not found. Using cl100k_base encoding.")
+            encoding = tiktoken.get_encoding("cl100k_base")
+        
+        num_tokens = 0
+        for function in functions:
+            function = function['function']
+            function_tokens = len(encoding.encode(function['name']))
+            function_tokens += len(encoding.encode(function['description']))
+            
+            if 'parameters' in function:
+                parameters = function['parameters']
+                if 'properties' in parameters:
+                    for propertiesKey in parameters['properties']:
+                        function_tokens += len(encoding.encode(propertiesKey))
+                        v = parameters['properties'][propertiesKey]
+                        for field in v:
+                            if field == 'type':
+                                function_tokens += 2
+                                function_tokens += len(encoding.encode(v['type']))
+                            elif field == 'description':
+                                function_tokens += 2
+                                function_tokens += len(encoding.encode(v['description']))
+                            elif field == 'enum':
+                                function_tokens -= 3
+                                for o in v['enum']:
+                                    function_tokens += 3
+                                    function_tokens += len(encoding.encode(o))
+                            else:
+                                print(f"Warning: not supported field {field}")
+                    function_tokens += 11
+
+            num_tokens += function_tokens
+
+        num_tokens += 12 
+        return num_tokens
