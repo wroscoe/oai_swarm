@@ -1,7 +1,7 @@
 import inspect
 from datetime import datetime
 import tiktoken
-
+from enum import Enum
 
 def debug_print(debug: bool, *args: str) -> None:
     if not debug:
@@ -42,9 +42,13 @@ def function_to_json(func) -> dict:
         A dictionary representing the function's signature in JSON format.
     """
 
-    # if a partial fucntion is passed, get the original function
+    # Helper to extract enum options if the parameter is an Enum type
+    def extract_enum_values(annotation):
+        if isinstance(annotation, type) and issubclass(annotation, Enum):
+            return [e.value for e in annotation]
+        return None
 
-    print(f'FUNC: {func.__name__}')
+    print(f'function_to_json: {func.__name__}')
 
     type_map = {
         str: "string",
@@ -65,13 +69,18 @@ def function_to_json(func) -> dict:
 
     parameters = {}
     for param in signature.parameters.values():
-        try:
-            param_type = type_map.get(param.annotation, "string")
-        except KeyError as e:
-            raise KeyError(
-                f"Unknown type annotation {param.annotation} for parameter {param.name}: {str(e)}"
-            )
-        parameters[param.name] = {"type": param_type}
+        annotation = param.annotation
+        # Check if it's an Enum type and extract values
+        enum_values = extract_enum_values(annotation)
+        if enum_values is not None:
+            parameters[param.name] = {
+                "type": "string",  # Enum values are represented as strings
+                "enum": enum_values,
+            }
+        else:
+            # Default type mapping
+            param_type = type_map.get(annotation, "string")
+            parameters[param.name] = {"type": param_type}
 
     required = [
         param.name
@@ -92,6 +101,7 @@ def function_to_json(func) -> dict:
         },
     }
 
+
 def num_tokens_from_messages (messages, model="gpt-3.5-turbo-0613"):
         """Return the number of tokens used by a list of messages."""
         try:
@@ -103,7 +113,6 @@ def num_tokens_from_messages (messages, model="gpt-3.5-turbo-0613"):
         num_tokens = 0
         for message in messages:
             message = dict(message)
-            print(message)
             num_tokens += len(encoding.encode(str(message['content'])))
             num_tokens += len(encoding.encode(message['role']))
             num_tokens += 12
@@ -112,7 +121,6 @@ def num_tokens_from_messages (messages, model="gpt-3.5-turbo-0613"):
 
 
 def num_tokens_from_functions(functions, model="gpt-3.5-turbo-0613"):
-        print(functions)
         """Return the number of tokens used by a list of functions."""
         try:
             encoding = tiktoken.encoding_for_model(model)

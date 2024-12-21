@@ -65,6 +65,8 @@ class Swarm:
 
 
         tools = self.prepare_tools(agent.functions)
+        print("Calling get_chat_completion")
+        print(messages)
 
         create_params = {
             "model": model_override or agent.model,
@@ -212,9 +214,11 @@ class Swarm:
             message = completion.choices[0].message
             total_output_tokens += num_tokens_from_messages([message])
 
+            print('Output Message: ', message)
+
             total_cost += total_output_tokens * output_token_cost + total_input_tokens * input_token_cost
-            print ("Total cost: ", total_cost)
-            print("Total output tokens: ", total_output_tokens)
+            #print ("Total cost: ", total_cost)
+            #print("Total output tokens: ", total_output_tokens)
             debug_print(debug, "Received completion:", message)
             message.sender = active_agent.name
             history.append(
@@ -231,6 +235,7 @@ class Swarm:
             )
             history.extend(partial_response.messages)
             context_variables.update(partial_response.context_variables)
+
             if partial_response.agent:
                 active_agent = partial_response.agent
 
